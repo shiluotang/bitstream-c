@@ -18,7 +18,6 @@ extern "C" {
         size_t          _M_marked_position;
     };
 
-
     typedef enum tagBSStatus { BS_SUCCESS, BS_FAIL, BS_EOS } BSStatus;
 
     typedef struct tagReadResult {
@@ -65,7 +64,6 @@ extern "C" {
 
         int _M_fixed;
     };
-
 
     extern BitOutputStream* BitOutputStreamInitialize(BitOutputStream*, void*, size_t);
     extern void BitOutputStreamRelease(BitOutputStream*);
