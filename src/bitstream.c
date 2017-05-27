@@ -36,7 +36,7 @@ ReadResult BitInputStreamReadBit(BitInputStream *const bis) {
         result._M_status = BS_EOS;
         return result;
     }
-    result._M_value.uint = (bis->_M_bytes[bis->_M_position / 8] >> READ_ONE_BIT_SHIFT_WIDTH[bis->_M_position % 8]) & 0x1;
+    result._M_value.uint = (bis->_M_bytes[bis->_M_position >> 3] >> READ_ONE_BIT_SHIFT_WIDTH[bis->_M_position & 0x7]) & 0x1;
     ++bis->_M_position;
     return result;
 }
@@ -190,6 +190,7 @@ int BitInputStreamSkipPaddingBits(BitInputStream *const bis) {
     if ((bis->_M_position & 0x7) == 0)
         return bits;
     bits = 8 - (bis->_M_position & 0x7);
+    bis->_M_position += bits;
     return bits;
 }
 
