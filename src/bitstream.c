@@ -182,7 +182,7 @@ size_t BitInputStreamGetBitPosition(BitInputStream const *bis) {
 }
 
 size_t BitInputStreamGetPosition(BitInputStream const *bis) {
-    return (BitInputStreamGetBitPosition(bis) + 8 - 1) / 8;
+    return BitInputStreamGetBitPosition(bis) >> 3;
 }
 
 int BitInputStreamSkipPaddingBits(BitInputStream *bis) {
@@ -417,7 +417,7 @@ size_t BitOutputStreamGetBitSize(BitOutputStream const* bos) {
 }
 
 size_t BitOutputStreamGetSize(BitOutputStream const* bos) {
-    return (BitOutputStreamGetBitSize(bos) + 8 - 1) / 8;
+    return BitOutputStreamGetBitSize(bos) >> 3;
 }
 
 void BitOutputStreamReset(BitOutputStream *bos) {
