@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-BitInputStream* BitInputStreamInitialize(BitInputStream *const bis, void const *bytes, size_t bits) {
+BitInputStream* BitInputStreamInitialize(BitInputStream *bis, void const *bytes, size_t bits) {
     if (!bis)
         return bis;
     bis->_M_bytes = (uint8_t const*) bytes;
@@ -29,7 +29,7 @@ int const READ_ONE_BIT_SHIFT_WIDTH[] = {
     7, 6, 5, 4, 3, 2, 1, 0
 };
 
-ReadResult BitInputStreamReadBit(BitInputStream *const bis) {
+ReadResult BitInputStreamReadBit(BitInputStream *bis) {
     ReadResult result;
     result._M_status = BS_SUCCESS;
     if (bis->_M_position >= bis->_M_size) {
@@ -41,11 +41,11 @@ ReadResult BitInputStreamReadBit(BitInputStream *const bis) {
     return result;
 }
 
-void BitInputStreamMark(BitInputStream *const bis) {
+void BitInputStreamMark(BitInputStream *bis) {
     bis->_M_marked_position = bis->_M_position;
 }
 
-void BitInputStreamReset(BitInputStream *const bis) {
+void BitInputStreamReset(BitInputStream *bis) {
     bis->_M_position = bis->_M_marked_position;
 }
 
@@ -156,7 +156,7 @@ ReadResult BitInputStreamReadSInt(BitInputStream *bis, size_t bits) {
     return result;
 }
 
-ReadResult BitInputStreamReadChar8(BitInputStream *const bis, size_t nbytes, char *char8String) {
+ReadResult BitInputStreamReadChar8(BitInputStream *bis, size_t nbytes, char *char8String) {
     ReadResult r;
     size_t i;
 
@@ -169,11 +169,11 @@ ReadResult BitInputStreamReadChar8(BitInputStream *const bis, size_t nbytes, cha
     return r;
 }
 
-ReadResult BitInputStreamReadUtf8(BitInputStream *const bis, size_t nbytes, char *utf8String) {
+ReadResult BitInputStreamReadUtf8(BitInputStream *bis, size_t nbytes, char *utf8String) {
     return BitInputStreamReadChar8(bis, nbytes, utf8String);
 }
 
-void const* BitInputStreamGetBuffer(BitInputStream const *const bis) {
+void const* BitInputStreamGetBuffer(BitInputStream const *bis) {
     return bis->_M_bytes;
 }
 
@@ -182,10 +182,10 @@ size_t BitInputStreamGetBitPosition(BitInputStream const *bis) {
 }
 
 size_t BitInputStreamGetPosition(BitInputStream const *bis) {
-    return (BitInputStreamGetBitPosition(bis) + 8 - 1) / 8;
+    return BitInputStreamGetBitPosition(bis) >> 3;
 }
 
-int BitInputStreamSkipPaddingBits(BitInputStream *const bis) {
+int BitInputStreamSkipPaddingBits(BitInputStream *bis) {
     size_t bits = 0;
     if ((bis->_M_position & 0x7) == 0)
         return bits;
@@ -194,7 +194,7 @@ int BitInputStreamSkipPaddingBits(BitInputStream *const bis) {
     return bits;
 }
 
-int BitInputStreamSeekBits(BitInputStream *const bis, long offset, int origin) {
+int BitInputStreamSeekBits(BitInputStream *bis, long offset, int origin) {
     switch (origin) {
         case SEEK_SET: break;
         case SEEK_CUR: offset += bis->_M_position; break;
@@ -207,7 +207,7 @@ int BitInputStreamSeekBits(BitInputStream *const bis, long offset, int origin) {
     return 0;
 }
 
-int BitInputStreamSeek(BitInputStream *const bis, long offset, int origin) {
+int BitInputStreamSeek(BitInputStream *bis, long offset, int origin) {
     return BitInputStreamSeekBits(bis, offset * 8, origin);
 }
 
@@ -394,7 +394,7 @@ WriteResult BitOutputStreamWriteSInt(BitOutputStream *bos, size_t bits, int64_t 
     return BitOutputStreamWriteUInt(bos, bits - 1, value);
 }
 
-WriteResult BitOutputStreamWriteChar8(BitOutputStream *const bos, size_t nbytes, char const *char8String) {
+WriteResult BitOutputStreamWriteChar8(BitOutputStream *bos, size_t nbytes, char const *char8String) {
     size_t i;
     WriteResult r;
     r._M_status = BS_SUCCESS;
@@ -404,7 +404,7 @@ WriteResult BitOutputStreamWriteChar8(BitOutputStream *const bos, size_t nbytes,
     return r;
 }
 
-WriteResult BitOutputStreamWriteUtf8(BitOutputStream *const bos, size_t nbytes, char const *utf8String) {
+WriteResult BitOutputStreamWriteUtf8(BitOutputStream *bos, size_t nbytes, char const *utf8String) {
     return BitOutputStreamWriteChar8(bos, nbytes, utf8String);
 }
 
@@ -417,14 +417,14 @@ size_t BitOutputStreamGetBitSize(BitOutputStream const* bos) {
 }
 
 size_t BitOutputStreamGetSize(BitOutputStream const* bos) {
-    return (BitOutputStreamGetBitSize(bos) + 8 - 1) / 8;
+    return BitOutputStreamGetBitSize(bos) >> 3;
 }
 
 void BitOutputStreamReset(BitOutputStream *bos) {
     bos->_M_position = 0;
 }
 
-int BitOutputStreamSeekBits(BitOutputStream *const bos, long offset, int origin) {
+int BitOutputStreamSeekBits(BitOutputStream *bos, long offset, int origin) {
     switch (origin) {
         case SEEK_SET: break;
         case SEEK_CUR: offset += bos->_M_position; break;
@@ -436,11 +436,11 @@ int BitOutputStreamSeekBits(BitOutputStream *const bos, long offset, int origin)
     return 0;
 }
 
-int BitOutputStreamSeek(BitOutputStream *const bos, long offset, int origin) {
+int BitOutputStreamSeek(BitOutputStream *bos, long offset, int origin) {
     return BitOutputStreamSeekBits(bos, offset * 8, origin);
 }
 
-size_t BitOutputStreamPaddingBits(BitOutputStream *const bos, int bit) {
+size_t BitOutputStreamPaddingBits(BitOutputStream *bos, int bit) {
     size_t bits;
     size_t i;
     bits = (8 - (bos->_M_position & 0x7)) & 0x7;
