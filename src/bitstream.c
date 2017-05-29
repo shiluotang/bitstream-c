@@ -417,7 +417,7 @@ size_t BitOutputStreamGetBitSize(BitOutputStream const* bos) {
 }
 
 size_t BitOutputStreamGetSize(BitOutputStream const* bos) {
-    return BitOutputStreamGetBitSize(bos) >> 3;
+    return (BitOutputStreamGetBitSize(bos) + 7) >> 3;
 }
 
 void BitOutputStreamReset(BitOutputStream *bos) {
