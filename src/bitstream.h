@@ -18,7 +18,6 @@ extern "C" {
         size_t          _M_marked_position;
     };
 
-
     typedef enum tagBSStatus { BS_SUCCESS, BS_FAIL, BS_EOS } BSStatus;
 
     typedef struct tagReadResult {
@@ -55,6 +54,9 @@ extern "C" {
     extern int BitInputStreamSkipPaddingBits(BitInputStream*);
     extern int BitInputStreamSeek(BitInputStream*, long, int);
     extern int BitInputStreamSeekBits(BitInputStream*, long, int);
+    extern int BitInputStreamIsEOS(BitInputStream const*);
+    extern size_t BitInputStreamGetBitSize(BitInputStream const*);
+    extern size_t BitInputStreamGetSize(BitInputStream const*);
 
     struct tagBitOutputStream;
     typedef struct tagBitOutputStream BitOutputStream;
@@ -65,7 +67,6 @@ extern "C" {
 
         int _M_fixed;
     };
-
 
     extern BitOutputStream* BitOutputStreamInitialize(BitOutputStream*, void*, size_t);
     extern void BitOutputStreamRelease(BitOutputStream*);
@@ -89,4 +90,4 @@ extern "C" {
 }
 #endif
 
-#endif /*BITSTREAM_BITSTREAM_H_INCLUDED*/
+#endif /* BITSTREAM_BITSTREAM_H_INCLUDED */
