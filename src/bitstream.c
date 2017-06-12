@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 BitInputStream* BitInputStreamInitialize(BitInputStream *bis, void const *bytes, size_t bits) {
     if (!bis)
@@ -114,7 +115,7 @@ ReadResult BitInputStreamReadUInt(BitInputStream *bis, size_t bits) {
             /* next start bit position. */
             w = ((pos >> 3) + 1) << 3;
             /* not from the first bit of byte. */
-            if (pos + bits >= w) {
+            if ((int) (pos + bits) >= w) {
                 /* at least to read the remaining bits in one byte. */
                 w -= pos;
                 result._M_value.uint <<= w;
@@ -147,7 +148,7 @@ ReadResult BitInputStreamReadSInt(BitInputStream *bis, size_t bits) {
 
     if (!BS_SUCCEEDED(r = BitInputStreamReadBit(bis)))
         return r;
-    sign = r._M_value.uint;
+    sign = (int) r._M_value.uint;
     if (!BS_SUCCEEDED(r = BitInputStreamReadUInt(bis, bits - 1)))
         return r;
     result._M_value.sint |= r._M_value.uint;
@@ -164,7 +165,7 @@ ReadResult BitInputStreamReadChar8(BitInputStream *bis, size_t nbytes, char *cha
     for (i = 0; i < nbytes; ++i) {
         if (!BS_SUCCEEDED(r = BitInputStreamReadUInt(bis, 8)))
             return r;
-        *char8String++ = r._M_value.uint;
+        *char8String++ = (char) r._M_value.uint;
     }
     return r;
 }
@@ -201,7 +202,7 @@ int BitInputStreamSeekBits(BitInputStream *bis, long offset, int origin) {
         case SEEK_END: offset += bis->_M_size; break;
         default: return -1;
     }
-    if (offset < 0 || offset > bis->_M_size)
+    if (offset < 0L || offset > (long) bis->_M_size)
         return -1;
     bis->_M_position = offset;
     return 0;
@@ -211,23 +212,35 @@ int BitInputStreamSeek(BitInputStream *bis, long offset, int origin) {
     return BitInputStreamSeekBits(bis, offset * 8, origin);
 }
 
-BitOutputStream* BitOutputStreamInitialize(BitOutputStream *bos, void *mem, size_t size) {
+int BitInputStreamIsEOS(BitInputStream const *bis) {
+    return bis->_M_position >= bis->_M_size;
+}
+
+size_t BitInputStreamGetBitSize(BitInputStream const *bis) {
+    return bis->_M_size;
+}
+
+size_t BitInputStreamGetSize(BitInputStream const *bis) {
+    return (BitInputStreamGetBitSize(bis) + 7) >> 3;
+}
+
+BitOutputStream* BitOutputStreamInitialize(BitOutputStream *bos, void *mem, size_t bits) {
     if (!bos)
         return bos;
     if (mem) {
         bos->_M_fixed = 1;
         bos->_M_bytes = (uint8_t*) mem;
     } else {
-        size = 16 * 8;
+        bits = 16 << 3;
         bos->_M_fixed = 0;
         /* initial capacity */
-        bos->_M_bytes = (uint8_t*) malloc(size);
+        bos->_M_bytes = (uint8_t*) malloc(bits >> 3);
         if (!bos->_M_bytes) {
             BitOutputStreamRelease(bos);
             return NULL;
         }
     }
-    bos->_M_size = size;
+    bos->_M_size = bits;
     bos->_M_position = 0;
     return bos;
 }
@@ -254,29 +267,28 @@ int SET_BIT_ZERO_MASKS[] = {
     ~(0x1 << 3), ~(0x1 << 2), ~(0x1 << 1), ~(0x1 << 0),
 };
 
+static int BitOutputStreamExpandBuffer(BitOutputStream *bos) {
+    void *p = NULL;
+    if (bos->_M_fixed)
+        return -1;
+    p = malloc(bos->_M_size >> 2);
+    if (!p)
+        return -1;
+    memcpy(p, bos->_M_bytes, bos->_M_size);
+    free(bos->_M_bytes);
+    bos->_M_bytes = p;
+    bos->_M_size <<= 1;
+    return 0;
+}
+
 WriteResult BitOutputStreamWriteBit(BitOutputStream *bos, int bit) {
     WriteResult result = { BS_SUCCESS };
-    void *p = NULL;
 
     if (bos->_M_position >= bos->_M_size) {
-        /* no enough space */
-        if (bos->_M_fixed) {
+        if (BitOutputStreamExpandBuffer(bos) != 0) {
             result._M_status = BS_FAIL;
             return result;
         }
-        /**
-         * As initial size is 16 bytes, value is of uint64_t (8 bytes),
-         * and we never reduce memory size, so twice the size definitely
-         * make it large enough for write uint64_t value.
-         */
-        /* expand memory. */
-        p = realloc(bos->_M_bytes, bos->_M_size >> 3);
-        if (!p) {
-            result._M_status = BS_FAIL;
-            return result;
-        }
-        bos->_M_bytes = p;
-        bos->_M_size <<= 1;
     }
     if (bit & 0x1) {
         bos->_M_bytes[bos->_M_position >> 3] |= SET_BIT_ONE_MASKS[bos->_M_position & 0x7];
@@ -289,7 +301,6 @@ WriteResult BitOutputStreamWriteBit(BitOutputStream *bos, int bit) {
 
 WriteResult BitOutputStreamWriteUInt(BitOutputStream *bos, size_t bits, uint64_t value) {
     WriteResult result = { BS_SUCCESS };
-    void *p = NULL;
     int first_bit_of_next_byte;
     int preserve;
     int rbits;
@@ -299,24 +310,10 @@ WriteResult BitOutputStreamWriteUInt(BitOutputStream *bos, size_t bits, uint64_t
     int pos = bos->_M_position;
 
     if (pos + bits > bos->_M_size) {
-        /* no enough space */
-        if (bos->_M_fixed) {
+        if (BitOutputStreamExpandBuffer(bos) != 0) {
             result._M_status = BS_FAIL;
             return result;
         }
-        /**
-         * As initial size is 16 bytes, value is of uint64_t (8 bytes),
-         * and we never reduce memory size, so twice the size definitely
-         * make it large enough for write uint64_t value.
-         */
-        /* expand memory. */
-        p = realloc(bos->_M_bytes, bos->_M_size >> 2);
-        if (!p) {
-            result._M_status = BS_FAIL;
-            return result;
-        }
-        bos->_M_bytes = p;
-        bos->_M_size <<= 1;
     }
 
     /**
@@ -339,7 +336,7 @@ WriteResult BitOutputStreamWriteUInt(BitOutputStream *bos, size_t bits, uint64_t
             if (bits > 0) {
                 bpos = pos >> 3;
                 preserve = bos->_M_bytes[bpos] & READ_LSB_BITS_OF_ONE_BYTE[8 - bits];
-                bos->_M_bytes[bpos] = (value & READ_LSB_BITS_OF_ONE_BYTE[bits]) << (8 - bits);
+                bos->_M_bytes[bpos] = (uint8_t) ((value & READ_LSB_BITS_OF_ONE_BYTE[bits]) << (8 - bits));
                 bos->_M_bytes[bpos] |= preserve;
                 pos += bits;
                 bits = 0;
@@ -350,7 +347,7 @@ WriteResult BitOutputStreamWriteUInt(BitOutputStream *bos, size_t bits, uint64_t
              * Next byte first bit position
              */
             first_bit_of_next_byte = ((pos >> 3) + 1) << 3;
-            if (pos + bits >= first_bit_of_next_byte) {
+            if ((int) (pos + bits) >= first_bit_of_next_byte) {
                 rbits = first_bit_of_next_byte - pos;
                 /**
                  * At least write to the last padding bits(LSB) in one byte.
@@ -358,7 +355,7 @@ WriteResult BitOutputStreamWriteUInt(BitOutputStream *bos, size_t bits, uint64_t
                 bpos = pos >> 3;
                 preserve = bos->_M_bytes[bpos] & (~READ_LSB_BITS_OF_ONE_BYTE[rbits]) & 0xff;
                 bits -= rbits;
-                bos->_M_bytes[bpos] = (value >> bits) & READ_LSB_BITS_OF_ONE_BYTE[rbits];
+                bos->_M_bytes[bpos] = (uint8_t) ((value >> bits) & READ_LSB_BITS_OF_ONE_BYTE[rbits]);
                 bos->_M_bytes[bpos] |= preserve;
                 pos += rbits;
             } else {
@@ -368,7 +365,7 @@ WriteResult BitOutputStreamWriteUInt(BitOutputStream *bos, size_t bits, uint64_t
                  */
                 bpos = pos >> 3;
                 preserve = bos->_M_bytes[bpos] & ~(READ_LSB_BITS_OF_ONE_BYTE[bits] << rbits) & 0xff;
-                bos->_M_bytes[bpos] = (value & READ_LSB_BITS_OF_ONE_BYTE[bits]) << rbits;
+                bos->_M_bytes[bpos] = (uint8_t) ((value & READ_LSB_BITS_OF_ONE_BYTE[bits]) << rbits);
                 bos->_M_bytes[bpos] |= preserve;
                 pos += bits;
                 bits = 0;
@@ -430,7 +427,7 @@ int BitOutputStreamSeekBits(BitOutputStream *bos, long offset, int origin) {
         case SEEK_CUR: offset += bos->_M_position; break;
         case SEEK_END: offset += bos->_M_size; break;
     }
-    if (offset < 0 || offset > bos->_M_size)
+    if (offset < 0L || offset > (long) bos->_M_size)
         return -1;
     bos->_M_position = offset;
     return 0;

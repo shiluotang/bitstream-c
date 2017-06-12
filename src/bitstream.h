@@ -54,6 +54,9 @@ extern "C" {
     extern int BitInputStreamSkipPaddingBits(BitInputStream*);
     extern int BitInputStreamSeek(BitInputStream*, long, int);
     extern int BitInputStreamSeekBits(BitInputStream*, long, int);
+    extern int BitInputStreamIsEOS(BitInputStream const*);
+    extern size_t BitInputStreamGetBitSize(BitInputStream const*);
+    extern size_t BitInputStreamGetSize(BitInputStream const*);
 
     struct tagBitOutputStream;
     typedef struct tagBitOutputStream BitOutputStream;
@@ -87,4 +90,4 @@ extern "C" {
 }
 #endif
 
-#endif /*BITSTREAM_BITSTREAM_H_INCLUDED*/
+#endif /* BITSTREAM_BITSTREAM_H_INCLUDED */
